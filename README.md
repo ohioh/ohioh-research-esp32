@@ -22,3 +22,13 @@ The collected data is then used to determine the optimal conditions for Bluetoot
 
 #### Layout
 (*insert breadport schematic here...*)
+
+
+#### Installation (on Linux Mint)
+-install visual  studio code and arduino IDE
+-install arduino add on for vsc
+-add https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json to settings.config in aduino url
+-open the arduino path manager with CTRL+p and > arduino board
+-refresh package index 
+-search for esp32 and isntall newest package
+-now choose board with CTRL+P > board config and take your esp32 board

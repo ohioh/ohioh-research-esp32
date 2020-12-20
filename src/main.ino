@@ -7,6 +7,7 @@
  */
 
 #include <pthread.h>
+#include <Wire.h>
 #include <EEPROM.h>
 #include <WiFi.h>
 #include <BLEDevice.h>
@@ -19,9 +20,17 @@
 #include "screen.h"
 
 #define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 32
 
+#if defined(WIFI_LoRa_32_V2)
+#define PIN_STATUS 34
+#define PIN_OLED_RESET    16
+#define SCREEN_HEIGHT 64
+#else
 #define PIN_STATUS 32
+#define PIN_OLED_RESET    -1
+#define SCREEN_HEIGHT 32
+#endif
+
 
 using namespace Ohioh;
 
@@ -30,7 +39,7 @@ const unsigned char ADDR_I2C_GY521{0x68};
 
 const uint16_t MTU{1500};
 
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT);
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, PIN_OLED_RESET);
 BLEScan *bleScan{nullptr};
 
 Screen *currentScreen{nullptr};
@@ -55,11 +64,8 @@ void setup()
     pinMode(33, INPUT);
 
     // Initialization steps specific to Heltec board
-#if defined(WIFI_Kit_32) || defined(WIFI_LoRa_32) || defined(WIFI_LoRa_32_V2)
-    pinMode(16, OUTPUT);
-    digitalWrite(16, LOW);
-    delay(50);
-    digitalWrite(16, HIGH);
+#if defined(WIFI_LoRa_32_V2)
+    Wire.begin(4, 15);
 #endif
 
     // Initalize SSD1306 display
@@ -69,19 +75,16 @@ void setup()
     display.setTextColor(SSD1306_WHITE);
 
     // Init operating mode
-    uint8_t opMode = EEPROM.readByte(0x0);
+    uint8_t opModeCode = EEPROM.readByte(0x0);
 
-    if (opMode != (uint8_t)OpMode::SEND || opMode != (uint8_t)OpMode::RECEIVE)
+    if (opModeCode != (uint8_t)OpMode::SEND || opModeCode != (uint8_t)OpMode::RECEIVE)
         opMode = OpMode::SEND;
+    else
+        opMode = (OpMode)opModeCode;
 
-    switch (opMode)
-    {
-    case OpMode::SEND:
-        break;
-
-    case OpMode::RECEIVE:
-        break;
-    }
+    char str[32];
+    sprintf(str, "Operation-mode: %d\n", (uint8_t)opMode);
+    Serial.write(str);
 
     bool connected{false};
 
@@ -89,9 +92,9 @@ void setup()
     pthread_t initThread;
 
     if (pthread_create(&initThread, NULL, ConnectionManager::setupIpv4, &connected) == 0)
-        Serial.println("Thread started!");
+        Serial.println("Thread started!\n");
     else
-        Serial.println("Thread failed to start!");
+        Serial.println("Thread failed to start!\n");
 
     u_char nDots{0};
 
@@ -132,7 +135,7 @@ void setup()
 
     // Create network loop thread
     TaskHandle_t *networkTask;
-    xTaskCreate(networkLoop, "listen", 1000, NULL, 0, networkTask);
+    xTaskCreate(networkLoop, "listen", 10000, NULL, 0, networkTask);
 }
 
 void loop()
@@ -142,10 +145,10 @@ void loop()
         client->connect(ConnectionManager::host, ConnectionManager::port);
 
     // Set status LED
-    if (WiFi.isConnected() && (bool)client->connected() && BLEDevice::getInitialized())
-        digitalWrite(PIN_STATUS, HIGH);
-    else
-        digitalWrite(PIN_STATUS, LOW);
+    //if (WiFi.isConnected() && (bool)client->connected() && BLEDevice::getInitialized())
+    //digitalWrite(PIN_STATUS, HIGH);
+    //else
+    //digitalWrite(PIN_STATUS, LOW);
 
     currentScreen->draw(display);
 
@@ -177,7 +180,7 @@ void loop()
         // Netcode
         if (results.getCount() > 0)
         {
-            uint8_t *buffer = new uint8_t[MTU]();
+            uint8_t buffer[MTU] = {0};
             size_t bufferSize{2};
 
             buffer[0] = MsgId::SCAN_REPORT;
@@ -198,8 +201,6 @@ void loop()
 
             client->write(buffer, bufferSize);
             client->flush();
-
-            delete[] buffer;
         }
 
         bleScan->clearResults();
@@ -210,37 +211,52 @@ void loop()
 void networkLoop(void *)
 {
     // Receive packets from the ORS
-    while (client->connected())
+    while (true)
     {
-        uint8_t *buffer = new uint8_t[MTU]();
-
-        uint16_t bufSize = client->read(buffer, MTU);
-
-        Serial.write("Received packet with ID ");
-        Serial.write(buffer[0]);
-
-        switch ((MsgId)buffer[0])
+        if (client->available())
         {
-        case MsgId::SET_OPMODE:
-            Serial.write("Adjusting op-mode...");
+            digitalWrite(PIN_STATUS, HIGH);
 
-            if ((OpMode)buffer[1] == OpMode::SEND || buffer[1] == OpMode::RECEIVE)
+            uint8_t buffer[MTU] = {0};
+
+            uint16_t bufSize = client->read(buffer, bufSize);
+
+            char str[256];
+            sprintf(str, "Received packet with ID \"%d\" with size of %d bytes\n", buffer[0], bufSize);
+            Serial.write(str);
+
+            switch ((MsgId)buffer[0])
             {
-                opMode = (OpMode)buffer[1];
+            case MsgId::SET_OPMODE:
+                uint8_t opmo = buffer[1];
 
-                // Write new op-mode to flash
-                EEPROM.writeByte(0x0, (uint8_t)opMode);
+                char str[1024];
+                sprintf(str, "Setting op-mode to \"%d\"...\n", opmo);
+                Serial.write(str);
 
-                // Respond with status report packet
-                // TO-DO
+                if (opmo == (uint8_t)OpMode::SEND || opmo == (uint8_t)OpMode::RECEIVE)
+                {
+                    // Write new op-mode to flash
+                    EEPROM.writeByte(0x0, opmo);
+
+                    opMode == (OpMode)opmo;
+
+                    // Respond with status report packet
+                    // TO-DO
+
+                    Serial.write("Success!\n");
+                }
+                else
+                    Serial.write("Invalid op-mode!\n");
+                break;
             }
-            else
-                Serial.write("Invalid op-mode!");
-            break;
         }
-
-        delete[] buffer;
+        else
+        {
+            digitalWrite(PIN_STATUS, LOW);
+        }
     }
+    vTaskDelete(NULL);
 }
 
 void writeHCentered(const char *str)

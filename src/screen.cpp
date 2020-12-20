@@ -19,7 +19,8 @@ void StatusScreen::draw(Adafruit_SSD1306 &display)
 
     display.setCursor(0, 0);
     uint8_t val = analogRead(33);
-    display.write("Status: ");
+    display.write("Op-mode: ");
+    display.write("\nStatus: ");
     display.write((ConnectionManager::clientTcp.connected() ? "Connected" : "Disconnected"));
     display.write("\nIPv4:   ");
 
@@ -40,7 +41,7 @@ void StatusScreen::draw(Adafruit_SSD1306 &display)
     //size_t len = sprintf(buf, "Bluetooth: %s", (BLEDevice::getInitialized() ? "on" : "off"));
     //display.write(buf, len);
 
-    display.write((std::string("Bluetooth: " ) + (BLEDevice::getInitialized() ? "on" : "off")).c_str());
+    display.write((std::string("\nBluetooth: " ) + (BLEDevice::getInitialized() ? "on" : "off")).c_str());
 
     display.display();
 }

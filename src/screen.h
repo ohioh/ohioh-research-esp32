@@ -1,5 +1,6 @@
 #pragma once
 
+#include "OrsClient.h"
 #include <WiFi.h>
 #include <Adafruit_SSD1306.h>
 
@@ -15,8 +16,12 @@ namespace Ohioh
     class StatusScreen : public Screen
     {
     public:
+        StatusScreen(OrsClient *client);
         ~StatusScreen() {}
         void draw(Adafruit_SSD1306 &display) override;
+
+    private:
+        OrsClient *_device;
     };
 
     class InitScreen : public Screen
@@ -25,4 +30,4 @@ namespace Ohioh
         ~InitScreen() {}
         void draw(Adafruit_SSD1306 &display) override;
     };
-} // namespace OHIOH
+} // namespace Ohioh

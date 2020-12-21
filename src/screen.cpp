@@ -1,6 +1,7 @@
 #include <BLEDevice.h>
 #include <string>
 
+#include "OrsClient.h"
 #include "screen.h"
 #include "connect.h"
 
@@ -13,13 +14,18 @@ void InitScreen::draw(Adafruit_SSD1306 &display)
     display.display();
 }
 
+StatusScreen::StatusScreen(OrsClient *client)
+{
+    _device = client;
+}
+
 void StatusScreen::draw(Adafruit_SSD1306 &display) 
 {
     display.clearDisplay();
 
     display.setCursor(0, 0);
     uint8_t val = analogRead(33);
-    display.write("Op-mode: ");
+    display.write("Op-mode: "); display.write(_device->getOpMode() == OpMode::SEND ? "SEND" : "RECEIVE");
     display.write("\nStatus: ");
     display.write((ConnectionManager::clientTcp.connected() ? "Connected" : "Disconnected"));
     display.write("\nIPv4:   ");

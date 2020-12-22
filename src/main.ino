@@ -64,6 +64,8 @@ void setup()
     pinMode(0, INPUT);
     pinMode(33, INPUT);
 
+    EEPROM.begin(1);
+
     // Initialization steps specific to Heltec board
 #if defined(WIFI_LoRa_32_V2)
     Wire.begin(4, 15);
@@ -87,9 +89,10 @@ void setup()
     else
     {
         EEPROM.writeByte(0x0, (uint8_t)OpMode::SEND);
+        EEPROM.commit();
+
         orsClient.setOpMode(OpMode::SEND);
     }
-
 
     char str[32];
     sprintf(str, "Operation-mode: %d\n", opModeCode);
@@ -99,7 +102,7 @@ void setup()
 
     // Create initialization thread
     //xTaskCreate([](void *param) { ConnectionManager::setupIpv4(NULL); }, "init_ipv4", 10000, NULL, 0, NULL);
-    
+
     pthread_t initThread;
 
     if (pthread_create(&initThread, NULL, ConnectionManager::setupIpv4, &connected) == 0)
@@ -139,7 +142,7 @@ void setup()
     currentScreen = new StatusScreen(&orsClient);
 
     // Create thread for client-side listening
-    xTaskCreate([](void *client) { ((OrsClient*)client)->listen(); }, "listen", 10000, &orsClient, 0, NULL);
+    xTaskCreate([](void *client) { ((OrsClient *)client)->listen(); }, "listen", 10000, &orsClient, 0, NULL);
 }
 
 void loop()

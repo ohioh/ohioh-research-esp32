@@ -4,6 +4,7 @@
 #include <EEPROM.h>
 #include <BLEDevice.h>
 #include <BLEScan.h>
+#include <BLEAdvertising.h>
 #include <WiFi.h>
 
 #include "connect.h"
@@ -26,11 +27,15 @@ namespace Ohioh
         void setOpMode(OpMode opMode);
         OpMode getOpMode();
         void getMTU();
+        ~OrsClient();
 
     private:
         uint16_t _mtu;
         OpMode _opMode;
         BLEScan *bleScan{nullptr};
+        BLEServer *bleServer{nullptr};
+        BLEAdvertising *bleAdv{nullptr};
+        bool _bleIsAdvertising {false};
         WiFiClient *client{&ConnectionManager::clientTcp};
     };
 } // namespace Ohioh
